@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Task Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        input, button { padding: 8px; margin: 5px 0; }
+        .task { border: 1px solid #ddd; padding: 10px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        .done { text-decoration: line-through; color: gray; }
+    </style>
+</head>
+<body>
+    <h2>Task Manager</h2>
+    <input type="text" id="title" placeholder="Task title (e.g., Buy milk)" />
+    <input type="text" id="desc" placeholder="Description" />
+    <button onclick="addTask()">Add Task</button>
+    <div id="taskList"></div>
+
+    <script>
+        const API = '/api/tasks';
+        let allTasks = [];
+
+        async function loadTasks() {
+            const res = await fetch(API);
+            allTasks = await res.json();
+            document.getElementById('taskList').innerHTML = allTasks.map(t => `
+                <div class="task">
+                    <span class="${t.completed ? 'done' : ''}">
+                        <b>${t.title}</b> - ${t.description || ''}
+                    </span>
+                    <div>
+                        <button onclick="toggleTask(${t.id})">
+                            ${t.completed ? 'Undo' : 'Complete'}
+                        </button>
+                        <button onclick="editTask(${t.id})">Edit</button>
+                        <button onclick="deleteTask(${t.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addTask() {
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('desc').value;
+            if (!title) return alert('Please enter a title!');
+            await fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description, completed: false })
+            });
+            document.getElementById('title').value = '';
+            document.getElementById('desc').value = '';
+            loadTasks();
+        }
+
+        async function toggleTask(id) {
+            const task = allTasks.find(t => t.id === id);
+            if (!task) return;
+            await fetch(`${API}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: task.title,
+                    description: task.description,
+                    completed: !task.completed
+                })
+            });
+            loadTasks();
+        }
+
+        async function editTask(id) {
+            const task = allTasks.find(t => t.id === id);
+            if (!task) return;
+            const newTitle = prompt('Edit task title:', task.title);
+            if (newTitle === null || newTitle.trim() === '') return;
+            const newDesc = prompt('Edit task description:', task.description || '');
+            if (newDesc === null) return;
+
+            await fetch(`${API}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: newTitle.trim(),
+                    description: newDesc.trim(),
+                    completed: task.completed
+                })
+            });
+            loadTasks();
+        }
+
+        async function deleteTask(id) {
+            await fetch(`${API}/${id}`, { method: 'DELETE' });
+            loadTasks();
+        }
+
+        loadTasks();
+    </script>
+</body>
+</html>
